@@ -3,31 +3,62 @@ namespace Core;
 
 class App
 {
+    /**
+     * @var instance of app.
+     */
+    protected static $instance = null;
 
-	protected static $instance = null;
-	protected static $objects  = [];
-	public $uri;
-	public $theme;
-	public $config;
-	protected $routes = [];
-	
-	public static function instance()
-	{
-		if ( is_null(self::$instance) ) {
-			self::$instance = new self;
-		}
+    /**
+     * @var containing instances of classes
+     */
+    protected static $objects = [];
 
-		return self::$instance;
-	}
+    /**
+     * @var Current request uri
+     */
+    public $uri;
 
-	public function run($config = [])
-	{
-		$this->config = $config;
-		$this->theme = $this->config->site->theme;
-		$this->set('request', new Request);
-		$this->set('view', new View);
-		
-		$this->uri = rtrim($this->request->uri(), '/');
+    /**
+     * @var Current theme
+     */
+    public $theme;
+
+    /**
+     * @var main config
+     */
+    public $config;
+
+    /**
+     * @var defined routes
+     */
+    protected $routes = [];
+
+    /**
+     * Loading instance of App class
+     * @return this
+     */
+    public static function instance()
+    {
+        if (is_null(self::$instance)) {
+            self::$instance = new self;
+        }
+
+        return self::$instance;
+    }
+
+    /**
+     * Firing the start of the app
+     * @param config array
+     * @return instance of Response
+     */
+    public function run($config = [])
+    {
+        $this->config = $config;
+        $this->theme = $this->config->site->theme;
+        $this->set('request', new Request);
+        $this->set('view', new View);
+
+        $this->uri = rtrim($this->request->uri(), '/');
 
         $this->plugins();
 
@@ -36,161 +67,225 @@ class App
         $this->event->trigger('before.routes', [ & $this->routes]);
         $name = $this->dispatch();
         $this->event->trigger('after.routes', [$this->routes]);
-        if ( $name instanceof Response ) {
-        	return $name;
+        if ($name instanceof Response) {
+            return $name;
         }
 
-        if ( is_null($name) ) {
-        	$name = $this->uri;
+        if (is_null($name)) {
+            $name = $this->uri;
         }
-		
-		$this->event->trigger('before.parse', [$name]);
-		$this->parse($name);
-		$this->internalPlugin();
 
-		$this->event->trigger('after.parse', [&$this->page]);
+        $this->event->trigger('before.parse', [$name]);
+        $this->parse($name);
+        $this->internalPlugin();
 
-		$this->event->trigger('before.render');
-		$view = $this->render();
-		$this->event->trigger('after.render', [&$view]);
+        $this->event->trigger('after.parse', [ & $this->page]);
 
-		return $this->response($view);
-	}
+        $this->event->trigger('before.render');
+        $view = $this->render();
+        $this->event->trigger('after.render', [ & $view]);
 
-	public function internalPlugin()
-	{
-		$page = $this->page->header();
-		$plugin = array_get($page, 'plugin');
-		if ( ! $plugin ) return;
-		$plugin = ucfirst(strtolower($plugin));
-		$plugin = "\Plugins\\{$plugin}\\{$plugin}";
-		new $plugin($this);
-	}
+        return $this->response($view);
+    }
 
-	public function dispatch()
-	{
-		if ( ! empty($this->routes) ) {
+    /**
+     * if internal plugin was set, load it.
+     */
+    public function internalPlugin()
+    {
+        $page = $this->page->header();
+        $plugin = array_get($page, 'plugin');
+        if (!$plugin) {
+            return;
+        }
 
-	        foreach ($this->routes as $route => $callback) {
-	            preg_match('~^'. $route .'$~', $this->uri, $matches);
-	            if ( ! empty($matches) ) {
-	            	if ( ! is_callable($callback) ) {
-	            		throw new \Exception("Route [$route] callback not found");
-	            	}
-	                return call_user_func_array($callback, $matches);
-	            }
-	        }
-		}
+        $plugin = ucfirst(strtolower($plugin));
+        $plugin = "\Plugins\\{$plugin}\\{$plugin}";
+        new $plugin($this);
+    }
 
-		$name = trim($this->uri, '/');
+    /**
+     * Dispatching routes or uri.
+     * @return string
+     */
+    public function dispatch()
+    {
+        if (!empty($this->routes)) {
+
+            foreach ($this->routes as $route => $callback) {
+                preg_match('~^' . $route . '$~', $this->uri, $matches);
+                if (!empty($matches)) {
+                    if (!is_callable($callback)) {
+                        throw new \Exception("Route [$route] callback not found");
+                    }
+                    return call_user_func_array($callback, $matches);
+                }
+            }
+        }
+
+        $name = trim($this->uri, '/');
         $this->uri = $name == '' ? 'index' : $name;
         return $this->uri;
-	}
+    }
 
-	public function parse($name)
-	{
-		if ( is_object($this->page) ) {
-			return true;
-		}
-		
-		$this->set('page', new Page);
+    /**
+     * parse page.
+     * 
+     * @param  name page name to parse
+     * @return boolean
+     */
+    public function parse($name)
+    {
+        if (is_object($this->page)) {
+            return true;
+        }
 
-		$result = $this->page->loadable( CONTENT . $name . '.md');
-		if ( $result === true ) {
-			$this->page->load();
-			return true;
-		}
+        $this->set('page', new Page);
 
-		$result = $this->page->loadable( CONTENT . $name . DS . 'index.md');
-		if ( $result ) {
-			$this->page->load();
-			return true;
-		}	
+        $result = $this->page->loadable(CONTENT . $name . '.md');
+        if ($result === true) {
+            $this->page->load();
+            return true;
+        }
 
-		$this->error("File {$name} not found");
-	}
+        $result = $this->page->loadable(CONTENT . $name . DS . 'index.md');
+        if ($result) {
+            $this->page->load();
+            return true;
+        }
 
-	public function render($theme = false, $data = [], $layout = false)
-	{
-		$view = $this->view;
+        $this->error("File {$name} not found");
+    }
 
-		$config = json_decode(json_encode($this->config), true);
-		$view->set('config', $config);
+    /**
+     * Render a theme
+     * @param  theme name
+     * @param  array
+     * @param  layout
+     * @return string
+     */
+    public function render($theme = false, $data = [], $layout = false)
+    {
+        $view = $this->view;
 
-		$view->set($data);
+        $config = json_decode(json_encode($this->config), true);
+        $view->set('config', $config);
 
-		$view->set('page', $this->page->header());
+        $view->set($data);
 
-        $this->event->trigger('after.header', [&$view]);
+        $view->set('page', $this->page->header());
 
+        $this->event->trigger('after.header', [ & $view]);
 
-        if ( ! $view->get('page.layout') ) {
+        if (!$view->get('page.layout')) {
             $view->set('page.layout', 'index');
         }
-        
+
         $content = $this->page->content();
-        $this->event->trigger('after.content', [&$content]);
+        $this->event->trigger('after.content', [ & $content]);
 
         $view->renderBlock('content', $content);
 
-        if ( ! $theme ) $theme = $this->theme;
-        if ( ! $layout ) $layout = $view->get('page.layout');
+        if (!$theme) {
+            $theme = $this->theme;
+        }
+
+        if (!$layout) {
+            $layout = $view->get('page.layout');
+        }
 
         $response = $view->render($theme . DS . $layout);
 
-        $this->event->trigger('after.render', [&$response]);
+        $this->event->trigger('after.render', [ & $response]);
 
         return $response;
-	}
+    }
 
-	public function response($view)
-	{
-		return new Response($view);
-	}
+    /**
+     * Return a Http response.
+     * @param  string
+     * @return Response
+     */
+    public function response($view)
+    {
+        return new Response($view);
+    }
 
-	public function error($message)
-	{
-		$this->page->setHeader(['layout' => '404', 'message' => $message]);
-	}
+    /**
+     * Render a 404 not found page.
+     * @param  string
+     */
+    public function error($message)
+    {
+        $this->page->setHeader(['layout' => '404', 'message' => $message]);
+    }
 
-	public function plugins()
-	{
-		if ( empty($this->config->plugins) ) return;
-		foreach ($this->config->plugins as $plugin) {
-			$name = strtolower($plugin);
-			$plugin = ucfirst(strtolower($plugin));
-			$plugin = "\Plugins\\{$plugin}\\{$plugin}";
-			new $plugin($this);
-		}
-	}
+    /**
+     * Run plugins set in config.
+     */
+    public function plugins()
+    {
+        if (empty($this->config->plugins)) {
+            return;
+        }
 
-	public function get($class)
-	{
-		if ( $class == get_class() ) {
-			return $this;
-		}
+        foreach ($this->config->plugins as $plugin) {
+            $name = strtolower($plugin);
+            $plugin = ucfirst(strtolower($plugin));
+            $plugin = "\Plugins\\{$plugin}\\{$plugin}";
+            new $plugin($this);
+        }
+    }
 
-		if ( ! isset(self::$objects[$class]) ) {
-			return false;
-		}
+    /**
+     * Get class using key.
+     * @param  class name
+     * @return object
+     */
+    public function get($class)
+    {
+        if ($class == get_class()) {
+            return $this;
+        }
 
-		$obj = self::$objects[$class];
-		if ( is_string($obj) ) return new $obj;
-		return $obj;
-	}
+        if (!isset(self::$objects[$class])) {
+            return false;
+        }
 
-	public function set($key, $value)
-	{
-		self::$objects[$key] = $value;
-	}
+        $obj = self::$objects[$class];
+        if (is_string($obj)) {
+            return new $obj;
+        }
 
-	public static function __callStatic($method, $args = [])
-	{
-		return call_user_func_array([self::instance(), $method], $args);
-	}
+        return $obj;
+    }
 
-	public function __get($key)
-	{
-		return $this->get($key);
-	}
+    /**
+     * Set an object instance or name.
+     * @param string
+     * @param string|object
+     */
+    public function set($key, $value)
+    {
+        self::$objects[$key] = $value;
+    }
+
+    /**
+     * Static magic method
+     * @param  string
+     * @param  array
+     */
+    public static function __callStatic($method, $args = [])
+    {
+        return call_user_func_array([self::instance(), $method], $args);
+    }
+
+    /**
+     * Get accessor.
+     * @param  string
+     */
+    public function __get($key)
+    {
+        return $this->get($key);
+    }
 }

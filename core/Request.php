@@ -4,42 +4,91 @@ namespace Core;
 class Request
 {
 
-	protected $server = [];
-	protected $input  = [];
-	protected $query  = [];
+    /**
+     * Server data
+     * @var array
+     */
+    protected $server = [];
 
-	function __construct()
-	{
-		$this->server = $_SERVER;
-		$this->input  = $_POST;
-		$this->query  = $_GET;
-	}
+    /**
+     * Post data
+     * @var array
+     */
+    protected $input = [];
 
-	public function server($key = false)
-	{
-		if ( ! $key ) return $this->server;
-		return array_get($this->server, $key, false);
-	}
+    /**
+     * Get data
+     * @var array
+     */
+    protected $query = [];
 
-	public function post($keys = false)
-	{
-		if ( ! $keys ) return $this->input;
-		return array_get($this->input, $keys, false);
-	}
+    /**
+     * Setting up global variables data.
+     */
+    public function __construct()
+    {
+        $this->server = $_SERVER;
+        $this->input = $_POST;
+        $this->query = $_GET;
+    }
 
-	public function query($keys = false)
-	{
-		return array_get($this->query, $keys, false);
-	}
+    /**
+     * Get data from server.
+     * @param  string
+     * @return string
+     */
+    public function server($key = false)
+    {
+        if (!$key) {
+            return $this->server;
+        }
 
-	public function method()
-	{
-		if ( isset($this->input['_method']) ) return $this->input['_method'];
-		return $this->server['REQUEST_METHOD'];
-	}
+        return array_get($this->server, $key, false);
+    }
 
-	public function uri()
-	{
-		return $this->server['REQUEST_URI'];
-	}
+    /**
+     * Get data from POST.
+     * @param  string
+     * @return string
+     */
+    public function post($keys = false)
+    {
+        if (!$keys) {
+            return $this->input;
+        }
+
+        return array_get($this->input, $keys, false);
+    }
+
+    /**
+     * Get data from GET.
+     * @param  string
+     * @return string
+     */
+    public function query($keys = false)
+    {
+        return array_get($this->query, $keys, false);
+    }
+
+    /**
+     * Get page request method
+     * @return string
+     */
+    public function method()
+    {
+        if (isset($this->post('_method'))) {
+            return $this->post('_method');
+        }
+
+        return $this->server('REQUEST_METHOD');
+    }
+
+    /**
+     * Get current page uri.
+     * @return string
+     */
+    public function uri()
+    {
+        return $this->server('REQUEST_URI');
+    }
 }
