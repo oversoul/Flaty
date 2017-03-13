@@ -1,0 +1,16 @@
+{
+    "site": {
+        "name": "Site title",
+        "lang": "en",
+        "theme": "basic",
+        "author": "author name",
+        "description": "Site description",
+        "keywords": "flaty, cms"
+    },
+    "menu": {
+        "/": "Home Page"
+    },
+    "plugins": [
+
+    ]
+}
