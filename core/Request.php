@@ -76,7 +76,7 @@ class Request
      */
     public function method()
     {
-        if (isset($this->post('_method'))) {
+        if ($this->post('_method')) {
             return $this->post('_method');
         }
 
