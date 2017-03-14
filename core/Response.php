@@ -55,13 +55,29 @@ class Response
     }
 
     /**
+     * Set page status
+     * @param  integer $status 
+     * @return instance
+     */
+    public function status($status = 200)
+    {
+        if ( isset($this->statuses[$status]) ) {
+            $this->status = $status;
+            $this->message = $this->statuses[$status];
+        }
+
+        return $this;
+    }
+
+    /**
      * Registring redirect header
      * @param  string
      * @return this
      */
-    public function redirect($url)
+    public function redirect($url, $status = 301)
     {
         $this->headers['Location'] = $url;
+        $this->status($status);
         return $this;
     }
 

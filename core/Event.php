@@ -11,7 +11,7 @@ class Event
 
     /**
      * DI container
-     * @var [type]
+     * @var
      */
     protected $container;
 

@@ -34,6 +34,11 @@ class App
     protected $routes = [];
 
     /**
+     * @var 404 error
+     */
+    protected $error = false;
+
+    /**
      * Loading instance of App class
      * @return this
      */
@@ -46,6 +51,13 @@ class App
         return self::$instance;
     }
 
+    public function registerBindings()
+    {
+        $this->set('request', new Request);
+        $this->set('view', new View);
+        $this->set('response', new Response);
+    }
+
     /**
      * Firing the start of the app
      * @param config array
@@ -54,31 +66,25 @@ class App
     public function run($config = [])
     {
         $this->config = $config;
-        $this->theme = $this->config->site->theme;
-        $this->set('request', new Request);
-        $this->set('view', new View);
-
-        $this->uri = rtrim($this->request->uri(), '/');
+        $this->registerBindings();
+        $uri = $this->request->uri();
 
         $this->plugins();
-
         $this->event->trigger('after.plugin');
 
         $this->event->trigger('before.routes', [ & $this->routes]);
-        $name = $this->dispatch();
+        $uri = $this->dispatch($uri);
         $this->event->trigger('after.routes', [$this->routes]);
-        if ($name instanceof Response) {
-            return $name;
+
+        if ($uri instanceof Response) {
+            return $uri;
         }
 
-        if (is_null($name)) {
-            $name = $this->uri;
-        }
+        $name = trim($uri, '/');
 
         $this->event->trigger('before.parse', [$name]);
         $this->parse($name);
         $this->internalPlugin();
-
         $this->event->trigger('after.parse', [ & $this->page]);
 
         $this->event->trigger('before.render');
@@ -108,12 +114,12 @@ class App
      * Dispatching routes or uri.
      * @return string
      */
-    public function dispatch()
+    public function dispatch($uri)
     {
         if (!empty($this->routes)) {
 
             foreach ($this->routes as $route => $callback) {
-                preg_match('~^' . $route . '$~', $this->uri, $matches);
+                preg_match('~^' . $route . '$~', $uri, $matches);
                 if (!empty($matches)) {
                     if (!is_callable($callback)) {
                         throw new \Exception("Route [$route] callback not found");
@@ -123,9 +129,7 @@ class App
             }
         }
 
-        $name = trim($this->uri, '/');
-        $this->uri = $name == '' ? 'index' : $name;
-        return $this->uri;
+        return $uri;
     }
 
     /**
@@ -187,7 +191,7 @@ class App
         $view->renderBlock('content', $content);
 
         if (!$theme) {
-            $theme = $this->theme;
+            $theme = $this->config->site->theme;
         }
 
         if (!$layout) {
@@ -208,7 +212,7 @@ class App
      */
     public function response($view)
     {
-        return new Response($view);
+        return $this->response->content($view);
     }
 
     /**
@@ -217,6 +221,7 @@ class App
      */
     public function error($message)
     {
+        $this->response->status(404);
         $this->page->setHeader(['layout' => '404', 'message' => $message]);
     }
 

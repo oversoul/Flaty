@@ -89,6 +89,6 @@ class Request
      */
     public function uri()
     {
-        return $this->server('REQUEST_URI');
+        return rtrim($this->server('REQUEST_URI'), '/');
     }
 }
