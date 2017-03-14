@@ -58,6 +58,10 @@ class Page
      */
     public function load()
     {
+        if (!$this->path) {
+            return false;
+        }
+        
         $file = trim(file_get_contents($this->path));
 
         if ($file == '') {
