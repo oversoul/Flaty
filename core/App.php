@@ -19,11 +19,6 @@ class App
     public $uri;
 
     /**
-     * @var Current theme
-     */
-    public $theme;
-
-    /**
      * @var main config
      */
     public $config;
@@ -134,7 +129,7 @@ class App
 
     /**
      * parse page.
-     * 
+     *
      * @param  name page name to parse
      * @return boolean
      */
