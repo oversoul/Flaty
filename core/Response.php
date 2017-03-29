@@ -58,6 +58,7 @@ class Response
     public function header($key, $value)
     {
         $this->headers[$key] = $value;
+        return $this;
     }
 
     /**
