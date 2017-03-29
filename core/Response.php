@@ -49,9 +49,15 @@ class Response
      */
     public function __construct($content = false)
     {
+        $this->header('Content-Type', 'text/html');
         if ($content) {
             $this->content = $content;
         }
+    }
+
+    public function header($key, $value)
+    {
+        $this->headers[$key] = $value;
     }
 
     /**
@@ -87,7 +93,6 @@ class Response
      */
     public function answer()
     {
-        $this->headers['Content-Type'] = 'text/html';
         if (!headers_sent()) {
             header("$this->protocol $this->status $this->message");
             foreach ($this->headers as $key => $value) {
@@ -97,6 +102,7 @@ class Response
 
         return $this->content;
     }
+
 
     /**
      * Setting up page body.
